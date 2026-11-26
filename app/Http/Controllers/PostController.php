@@ -19,8 +19,15 @@ class PostController extends Controller
     }
     public function show(string $id): Response
     {
+        $post = Post::with('user')->findOrFail($id);
         return Inertia::render('posts/show', [
-            'post' => Post::with('user')->findOrFail($id),
+            'post' => $post,
+            'comments' =>  Inertia::defer(
+                fn() => $post->comments()
+                    ->with('user')
+                    ->latest()
+                    ->get()
+            )
         ]);
     }
     public function create(): Response
