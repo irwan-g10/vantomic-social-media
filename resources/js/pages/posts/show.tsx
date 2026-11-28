@@ -1,3 +1,4 @@
+import CommentList from "@/components/comment-list";
 import {
     Card,
     CardContent,
@@ -9,8 +10,9 @@ import CommentCard from "@/components/ui/comment-card";
 import CommentForm from "@/components/ui/comment-form";
 import AppLayout from "@/layouts/app-layout";
 import { Comment, Post } from "@/types";
-import { Deferred, Link } from "@inertiajs/react";
-import React from "react";
+import { Deferred, Link, usePoll } from "@inertiajs/react";
+import React, { useEffect, useRef } from "react";
+import { toast } from "sonner";
 
 interface PostsShowProps {
     post: Post;
@@ -18,6 +20,48 @@ interface PostsShowProps {
 }
 
 export default function PostShow({ post, comments }: PostsShowProps) {
+    const commentsSectionRef = useRef<HTMLDivElement>(null);
+    const commentCountRef = useRef(comments?.length ?? 0);
+    const iAmWritingComment = useRef(false);
+
+    const scrollToComments = () =>
+        commentsSectionRef.current?.scrollIntoView({
+            behavior: "smooth",
+            block: "start",
+        });
+
+    usePoll(3_000, {
+        only: ["comments"],
+    });
+
+    useEffect(() => {
+        // Current  length of comments []
+        const newCommentCount = comments?.length ?? 0;
+
+        if (
+            newCommentCount > commentCountRef.current &&
+            commentCountRef.current > 0 &&
+            !iAmWritingComment.current
+        ) {
+            toast("New Comment Available", {
+                duration: 6_000,
+                action: {
+                    label: "View Comments",
+                    onClick: scrollToComments,
+                },
+            });
+        }
+
+        commentCountRef.current = newCommentCount;
+        iAmWritingComment.current = false;
+    }, [comments]);
+
+    const handleCommentAdded = () => {
+        iAmWritingComment.current = true;
+        toast("Comment has been added", {
+            description: "Your comment has already live and visible",
+        });
+    };
     return (
         <AppLayout>
             <div className="space-y-6">
@@ -35,32 +79,18 @@ export default function PostShow({ post, comments }: PostsShowProps) {
                         </p>
                     </CardContent>
                 </Card>
-                <CommentForm postId={post.id} />
-                <Deferred
-                    data="comments"
-                    fallback={
-                        <div className="text-center py-8">
-                            <p className="text-gray-500">
-                                Loading comments ...
-                            </p>
-                        </div>
-                    }
-                >
-                    {comments && comments.length > 0 ? (
-                        <div>
-                            {comments.map((comment) => (
-                                <CommentCard
-                                    key={comment.id}
-                                    comment={comment}
-                                />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8">
-                            <p className="text-gray-500">No comments yet.</p>
-                        </div>
-                    )}
-                </Deferred>
+                <CommentForm
+                    postId={post.id}
+                    onCommentAdded={handleCommentAdded}
+                />
+                <div ref={commentsSectionRef}>
+                    <Deferred
+                        data="comments"
+                        fallback={<CommentList comments={comments ?? []} />}
+                    >
+                        <CommentList comments={comments ?? []} />
+                    </Deferred>
+                </div>
             </div>
         </AppLayout>
     );
